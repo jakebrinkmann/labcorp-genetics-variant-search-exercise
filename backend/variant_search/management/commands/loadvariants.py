@@ -94,12 +94,22 @@ class Command(BaseCommand):
                 reported_ref=variant_data[21],
                 reported_alt=variant_data[22],
             )
-            try:
-                variant.save()
-            except Exception as e:
-                print(e)
+            current_batch.append(variant)
 
-            if (line_number + 1) % 1000 == 0 or (line_number + 1) == num_variants:
-                print('Loaded {} / {} variants'.format(line_number+1, num_variants))
+            if (line_number + 1) % 1000 == 0:
+                print(f"Loaded {line_number+1} variants")
+                if current_batch:
+                    try:
+                        # TODO: is 'create' enough, or we expect updates?
+                        Variant.objects.bulk_create(current_batch)
+                    except IntegrityError as exc:
+                        # TODO: can we recover from this?
+                        print(exc)
+                    except Exception as exc:
+                        print(exc)
+                    finally:
+                        current_batch = []
 
             line_number = line_number + 1
+
+        print(f"Success! Saved {line_number} variants")
