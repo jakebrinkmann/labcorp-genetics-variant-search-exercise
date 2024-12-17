@@ -1,7 +1,9 @@
 import csv
+import gzip
 from typing import TYPE_CHECKING
 
 from django.core.management.base import BaseCommand
+from django.db import IntegrityError
 from django.utils.dateparse import parse_datetime
 
 from variant_search.models import Variant
@@ -21,24 +23,37 @@ def is_variant_data_loaded(force_load: bool) -> bool:
 
 
 class Command(BaseCommand):
-    help = 'Generate fixture dataset'
+    help = "Generate fixture dataset"
 
     def add_arguments(self, parser: "ArgumentParser"):
-        parser.add_argument('--force', action='store_true',
-                            help='delete existing variants and then load variant data')
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="delete existing variants and then load variant data",
+        )
+        parser.add_argument(
+            "--load-all",
+            action="store_true",
+            help="load the larger variants_all.tsv.gz file",
+        )
 
     def handle(self, *args, **options):
         expected_columns = 23
 
-        if is_variant_data_loaded(options['force']):
-            print('Skipping loadvariants command. Variants already loaded in database.')
+        if is_variant_data_loaded(options["force"]):
+            print("Skipping loadvariants command. Variants already loaded in database.")
             return
 
-        variants_data = list(csv.reader(open('../data/variants.tsv', 'rt'), delimiter='\t'))
-        num_variants = len(variants_data)
+        if options["load_all"]:
+            filehandle = gzip.open("../data/variants_all.tsv.gz", "rt")
+        else:
+            filehandle = open("../data/variants.tsv", "rt")
+
+        csv_file = csv.reader(filehandle, delimiter="\t")
 
         line_number = 0
-        for variant_data in variants_data:
+        current_batch = []
+        for variant_data in csv_file:
             # Skip the header
             if line_number == 0:
                 line_number = line_number + 1
@@ -46,9 +61,9 @@ class Command(BaseCommand):
 
             # some lines don't have all the columns - in that case, add empty strings
             data_length = len(variant_data)
-            if (data_length < expected_columns):
-                for i in range(expected_columns - data_length):
-                    variant_data.append('')
+            if data_length < expected_columns:
+                for _ in range(expected_columns - data_length):
+                    variant_data.append("")
 
             variant = Variant(
                 gene=variant_data[0],
@@ -61,8 +76,12 @@ class Command(BaseCommand):
                 reported_classification=variant_data[7],
                 inferred_classification=variant_data[8],
                 source=variant_data[9],
-                last_evaluated=parse_datetime(variant_data[10] + ' UTC') if len(variant_data[10]) else None,
-                last_updated=parse_datetime(variant_data[11] + ' UTC') if len(variant_data[11]) else None,
+                last_evaluated=parse_datetime(variant_data[10] + " UTC")
+                if len(variant_data[10])
+                else None,
+                last_updated=parse_datetime(variant_data[11] + " UTC")
+                if len(variant_data[11])
+                else None,
                 url=variant_data[12],
                 submitter_comment=variant_data[13],
                 assembly=variant_data[14],
