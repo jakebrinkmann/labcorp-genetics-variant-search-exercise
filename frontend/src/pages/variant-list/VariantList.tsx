@@ -1,5 +1,6 @@
-import {Form, Input, Space, Table} from 'antd'
+import {Descriptions, Form, Input, Space, Table} from 'antd'
 import {ColumnsType} from 'antd/lib/table'
+import type {DescriptionsProps} from 'antd'
 import {useEffect, useState} from 'react'
 import './VariantList.css'
 
@@ -73,6 +74,18 @@ export default function VariantList() {
     setCurrentPage(page)
   }
 
+  const renderRowItem = (row: Variant) => {
+    return (
+      <Descriptions title="Variant Details">
+        {Object.keys(row).map(key => (
+          <Descriptions.Item label={key} key={key}>
+            {row[key]}
+          </Descriptions.Item>
+        ))}
+      </Descriptions>
+    )
+  }
+
   return (
     <>
       <div className="gene-search-container">
@@ -90,11 +103,15 @@ export default function VariantList() {
         loading={loading}
         columns={columns}
         dataSource={data?.results}
+        rowKey={'id'}
         pagination={{
           pageSize: 15,
           total: data?.count,
           current: currentPage,
           onChange: handlePaginationChange,
+        }}
+        expandable={{
+          expandedRowRender: record => <div style={{margin: 0}}>{renderRowItem(record)}</div>,
         }}
       />
     </>
